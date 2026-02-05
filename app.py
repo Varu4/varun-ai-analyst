@@ -12,7 +12,7 @@ import io
 import datetime
 import requests
 import joblib
-
+import os
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 
@@ -32,8 +32,9 @@ st.set_page_config(
 
 # ================= PASSWORDS =================
 
-STANDARD_PASS = "STD2026VARUN"
-PREMIUM_PASS = "PRO2026VARUN"
+STANDARD_PASS = st.secrets["STANDARD_PASS"]
+PREMIUM_PASS = st.secrets["PREMIUM_PASS"]
+
 
 
 # ================= SESSION =================
@@ -496,4 +497,5 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
