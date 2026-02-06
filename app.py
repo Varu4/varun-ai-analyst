@@ -444,29 +444,101 @@ elif menu == "⚙ Feature Engineering":
 
     df = st.session_state.data
 
-    num = df.select_dtypes(np.number).columns
+    if df is None:
+        st.warning("Upload data first")
+        st.stop()
 
-    col = st.selectbox("Select Column", num)
+    # ================= COLUMN TYPES =================
+
+    numeric_cols = [col for col in df.columns if df[col].dtype != "object"]
+    cat_cols = [col for col in df.columns if df[col].dtype == "object"]
+
+    st.subheader("📌 Column Types")
+
+    st.write("🔢 Numerical Columns:")
+    st.write(numeric_cols)
+
+    st.write("🔤 Categorical Columns:")
+    st.write(cat_cols)
+
+    st.markdown("---")
+
+    # ================= NUMERIC TRANSFORMATION =================
+
+    st.subheader("📐 Numeric Transformations")
+
+    num_col = st.selectbox("Select Numeric Column", numeric_cols)
 
     option = st.radio(
         "Transformation",
-        ["Square","Log","Normalize"]
+        ["Square", "Log", "Normalize"]
     )
 
-    if st.button("Apply"):
+    if st.button("Apply Transformation"):
 
-        if option=="Square":
-            df[col+"_sq"] = df[col]**2
+        if option == "Square":
+            df[num_col + "_sq"] = df[num_col] ** 2
 
-        elif option=="Log":
-            df[col+"_log"] = np.log1p(df[col])
+        elif option == "Log":
+            df[num_col + "_log"] = np.log1p(df[num_col])
 
-        elif option=="Normalize":
-            df[col+"_norm"] = (df[col]-df[col].min())/(df[col].max()-df[col].min())
+        elif option == "Normalize":
+            df[num_col + "_norm"] = (
+                (df[num_col] - df[num_col].min()) /
+                (df[num_col].max() - df[num_col].min())
+            )
 
         st.session_state.data = df
 
-        st.success("Feature Created ✔")
+        st.success("✅ Numeric Feature Created")
+
+    st.markdown("---")
+
+    # ================= ENCODING =================
+
+    st.subheader("🔁 Categorical Encoding")
+
+    enc_col = st.selectbox("Select Categorical Column", cat_cols)
+
+    encode_type = st.radio(
+        "Encoding Method",
+        ["Label Encoding", "One-Hot Encoding"]
+    )
+
+    st.warning("⚠️ Do NOT apply Label + One-Hot on the same column.")
+
+    if st.button("Apply Encoding"):
+
+        from sklearn.preprocessing import LabelEncoder
+
+        # ----- Label Encoding -----
+        if encode_type == "Label Encoding":
+
+            le = LabelEncoder()
+
+            df[enc_col + "_label"] = le.fit_transform(df[enc_col])
+
+            st.success("✅ Label Encoding Applied")
+
+        # ----- One Hot Encoding -----
+        elif encode_type == "One-Hot Encoding":
+
+            dummies = pd.get_dummies(df[enc_col], prefix=enc_col)
+
+            df = pd.concat([df, dummies], axis=1)
+
+            st.success("✅ One-Hot Encoding Applied")
+
+        st.session_state.data = df
+
+    st.markdown("---")
+
+    # ================= PREVIEW =================
+
+    st.subheader("📊 Updated Dataset Preview")
+
+    st.dataframe(df.head())
+
 
 
 # ================= KPI =================
@@ -666,6 +738,7 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
 
