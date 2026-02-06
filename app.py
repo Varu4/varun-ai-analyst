@@ -16,7 +16,7 @@ import os
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 
@@ -120,23 +120,60 @@ def generate_pdf(df, summary):
 
     elements = []
 
+    # ================= TITLE =================
+
     elements.append(Paragraph("AI Business Report", styles["Title"]))
     elements.append(Spacer(1, 20))
 
+    # ================= SUMMARY =================
+
     elements.append(Paragraph("Summary", styles["Heading2"]))
-    elements.append(Paragraph(summary, styles["Normal"]))
-    elements.append(Spacer(1, 10))
+    elements.append(Paragraph(summary.replace("\n", "<br/>"), styles["Normal"]))
+    elements.append(Spacer(1, 15))
+
+    # ================= INSIGHTS =================
 
     elements.append(Paragraph("Insights", styles["Heading2"]))
 
     for i in business_insights(df):
         elements.append(Paragraph("- " + i, styles["Normal"]))
 
+    elements.append(Spacer(1, 20))
+
+    # ================= CHARTS =================
+
+    elements.append(Paragraph("Data Visualizations", styles["Heading2"]))
+    elements.append(Spacer(1, 10))
+
+    numeric_cols = df.select_dtypes(np.number).columns
+
+    for col in numeric_cols[:3]:   # Max 3 charts (keeps PDF clean)
+
+        # Create chart
+        plt.figure()
+        df[col].hist()
+        plt.title(col)
+
+        img_path = f"{col}_chart.png"
+
+        plt.savefig(img_path)
+        plt.close()
+
+        # Add image to PDF
+        elements.append(Image(img_path, width=400, height=250))
+        elements.append(Spacer(1, 15))
+
+        # Remove temp file
+        os.remove(img_path)
+
+    # ================= BUILD =================
+
     doc.build(elements)
 
     buffer.seek(0)
 
     return buffer
+
 
 
 # ================= HOME =================
@@ -871,6 +908,7 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
 
