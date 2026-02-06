@@ -196,7 +196,6 @@ elif menu == "📁 Upload":
 
         st.dataframe(st.session_state.data.head())
 
-
 # ================= ANALYSIS =================
 
 elif menu == "📈 Analysis":
@@ -207,11 +206,71 @@ elif menu == "📈 Analysis":
 
     df = st.session_state.data
 
-    st.title("📈 Basic Analysis")
+    st.title("📈 Data Overview & Analysis")
 
-    st.dataframe(df.describe())
+    # -------- BASIC FEATURES --------
+    st.subheader("📄 Dataset Preview")
+
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "Head",
+        "Tail",
+        "Shape",
+        "Columns",
+        "Dtypes",
+        "Info"
+    ])
+
+    with tab1:
+        st.write("First 5 Rows")
+        st.dataframe(df.head())
+
+    with tab2:
+        st.write("Last 5 Rows")
+        st.dataframe(df.tail())
+
+    with tab3:
+        st.write("Dataset Shape")
+        st.info(f"Rows: {df.shape[0]} | Columns: {df.shape[1]}")
+
+    with tab4:
+        st.write("Column Names")
+        st.write(list(df.columns))
+
+    with tab5:
+        st.write("Data Types")
+        st.dataframe(df.dtypes)
+
+    with tab6:
+        st.write("Dataset Info")
+
+        buffer = io.StringIO()
+        df.info(buf=buffer)
+        s = buffer.getvalue()
+
+        st.text(s)
+
+    st.markdown("---")
+
+    # -------- FULL DATA VIEW --------
+    st.subheader("📊 Full Dataset")
+
+    if st.checkbox("Show Full Data"):
+        st.dataframe(df)
+
+    st.markdown("---")
+
+    # -------- CHART (STANDARD+) --------
+    if st.session_state.plan == "Basic":
+        st.warning("🔒 Upgrade to Standard to use Charts")
+        st.stop()
+
+    st.subheader("📈 Visualization")
 
     num_cols = df.select_dtypes(np.number).columns
+
+    if len(num_cols) == 0:
+        st.warning("No numeric columns found")
+        st.stop()
 
     col = st.selectbox("Select Column", num_cols)
 
@@ -497,5 +556,6 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
