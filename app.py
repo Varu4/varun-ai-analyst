@@ -595,40 +595,185 @@ elif menu == "⬇ Export":
         "text/csv"
     )
 
-
 # ================= ML =================
 
 elif menu == "🤖 ML Studio":
 
     if st.session_state.plan != "Premium":
-        st.error("Premium Only")
+        st.error("🔒 Premium Only")
         st.stop()
+
+    st.title("🤖 ML Studio - Machine Learning Lab")
 
     df = st.session_state.data
 
-    st.title("🤖 ML Studio")
+    if df is None:
+        st.warning("Upload data first")
+        st.stop()
 
-    target = st.selectbox("Target", df.columns)
+    # ================= TARGET & FEATURES =================
 
-    features = st.multiselect(
-        "Features",
+    st.subheader("📌 Select Target & Features")
+
+    target = st.selectbox("Select Target (Dependent Variable)", df.columns)
+
+    feature_cols = st.multiselect(
+        "Select Features (Independent Variables)",
         df.select_dtypes(np.number).columns
     )
 
-    if st.button("Train"):
+    test_size = st.slider(
+        "Test Size (%)",
+        min_value=10,
+        max_value=50,
+        value=20
+    ) / 100
 
-        X = df[features]
+    st.markdown("---")
+
+    # ================= MODEL SELECTION =================
+
+    st.subheader("⚙ Select Model")
+
+    model_type = st.selectbox(
+        "Choose Algorithm",
+        [
+            "Linear Regression",
+            "Logistic Regression",
+            "Decision Tree",
+            "Random Forest",
+            "Gradient Boosting"
+        ]
+    )
+
+    st.markdown("---")
+
+    # ================= TRAIN =================
+
+    if st.button("🚀 Train Model"):
+
+        # ---------------- Split X and y ----------------
+
+        X = df[feature_cols]
         y = df[target]
 
-        X_train, X_test, y_train, y_test = train_test_split(X,y)
+        # ---------------- Train Test Split ----------------
 
-        model = LinearRegression()
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y,
+            test_size=test_size,
+            random_state=42
+        )
 
-        model.fit(X_train,y_train)
+        # ---------------- Import Models ----------------
 
-        score = model.score(X_test,y_test)
+        from sklearn.linear_model import LinearRegression, LogisticRegression
+        from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+        from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+        from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 
-        st.success(f"Model Score: {score:.2f}")
+        from sklearn.metrics import (
+            accuracy_score,
+            confusion_matrix,
+            classification_report,
+            mean_squared_error,
+            r2_score
+        )
+
+        # ---------------- Detect Problem Type ----------------
+
+        is_classification = y.nunique() <= 10
+
+        # ---------------- Build Model ----------------
+
+        if model_type == "Linear Regression":
+            model = LinearRegression()
+
+        elif model_type == "Logistic Regression":
+            model = LogisticRegression(max_iter=1000)
+
+        elif model_type == "Decision Tree":
+
+            if is_classification:
+                model = DecisionTreeClassifier()
+            else:
+                model = DecisionTreeRegressor()
+
+        elif model_type == "Random Forest":
+
+            if is_classification:
+                model = RandomForestClassifier()
+            else:
+                model = RandomForestRegressor()
+
+        elif model_type == "Gradient Boosting":
+
+            if is_classification:
+                model = GradientBoostingClassifier()
+            else:
+                model = GradientBoostingRegressor()
+
+        # ---------------- Train ----------------
+
+        model.fit(X_train, y_train)
+
+        # ---------------- Predict ----------------
+
+        y_pred = model.predict(X_test)
+
+        st.success("✅ Model Trained Successfully")
+
+        st.markdown("---")
+
+        # ================= RESULTS =================
+
+        st.subheader("📊 Model Performance")
+
+        # -------- Classification --------
+        if is_classification:
+
+            acc = accuracy_score(y_test, y_pred)
+
+            cm = confusion_matrix(y_test, y_pred)
+
+            st.metric("Accuracy", f"{acc:.2f}")
+
+            st.write("### Confusion Matrix")
+            st.dataframe(cm)
+
+            st.write("### Classification Report")
+            st.text(classification_report(y_test, y_pred))
+
+
+        # -------- Regression --------
+        else:
+
+            mse = mean_squared_error(y_test, y_pred)
+
+            r2 = r2_score(y_test, y_pred)
+
+            st.metric("MSE", f"{mse:.2f}")
+            st.metric("R² Score", f"{r2:.2f}")
+
+        st.markdown("---")
+
+        # ================= SAMPLE PREDICTIONS =================
+
+        st.subheader("🔍 Sample Predictions")
+
+        result_df = pd.DataFrame({
+            "Actual": y_test.values[:10],
+            "Predicted": y_pred[:10]
+        })
+
+        st.dataframe(result_df)
+
+        # ================= SAVE MODEL =================
+
+        joblib.dump(model, "trained_model.pkl")
+
+        st.success("💾 Model Saved as trained_model.pkl")
+
 
 
 # ================= REPORT =================
@@ -738,6 +883,7 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
 
