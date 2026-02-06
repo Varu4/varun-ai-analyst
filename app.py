@@ -304,22 +304,132 @@ elif menu == "📊 Advanced EDA":
         st.error("🔒 Upgrade Required")
         st.stop()
 
-    st.title("📊 Advanced EDA")
+    if st.session_state.data is None:
+        st.warning("Upload data first")
+        st.stop()
+
+    st.title("📊 Advanced Exploratory Data Analysis")
 
     df = st.session_state.data
 
     numeric_cols = df.select_dtypes(np.number).columns
 
-    st.subheader("Missing Values")
-    st.dataframe(df.isnull().sum())
+    # ---------- STATISTICAL SUMMARY ----------
+    st.subheader("📈 Statistical Summary")
+    st.dataframe(df.describe())
 
+    st.markdown("---")
+
+    # ---------- MISSING VALUES ----------
+    st.subheader("❓ Missing Values Analysis")
+
+    missing = df.isnull().sum()
+
+    st.dataframe(missing)
+
+    if missing.sum() > 0:
+
+        st.warning("Missing values detected")
+
+        fill_option = st.selectbox(
+            "Handle Missing Values",
+            ["Do Nothing", "Fill with Mean", "Fill with Median", "Fill with Mode", "Drop Rows"]
+        )
+
+        if st.button("Apply Missing Value Treatment"):
+
+            if fill_option == "Fill with Mean":
+                df.fillna(df.mean(numeric_only=True), inplace=True)
+
+            elif fill_option == "Fill with Median":
+                df.fillna(df.median(numeric_only=True), inplace=True)
+
+            elif fill_option == "Fill with Mode":
+                df.fillna(df.mode().iloc[0], inplace=True)
+
+            elif fill_option == "Drop Rows":
+                df.dropna(inplace=True)
+
+            st.session_state.data = df
+            st.success("Missing Values Handled ✔")
+
+    st.markdown("---")
+
+    # ---------- CORRELATION ----------
     if len(numeric_cols) > 1:
 
-        fig, ax = plt.subplots(figsize=(8,5))
+        st.subheader("🔗 Correlation Heatmap")
 
-        sns.heatmap(df[numeric_cols].corr(), annot=True, cmap="coolwarm", ax=ax)
+        fig, ax = plt.subplots(figsize=(8, 5))
+
+        sns.heatmap(
+            df[numeric_cols].corr(),
+            annot=True,
+            cmap="coolwarm",
+            ax=ax
+        )
 
         st.pyplot(fig)
+
+    st.markdown("---")
+
+    # ---------- OUTLIER DETECTION ----------
+    st.subheader("📦 Outlier Detection (Boxplot)")
+
+    if len(numeric_cols) == 0:
+        st.warning("No numeric columns found")
+        st.stop()
+
+    selected_col = st.selectbox(
+        "Select Column for Outlier Analysis",
+        numeric_cols
+    )
+
+    fig2, ax2 = plt.subplots()
+
+    sns.boxplot(x=df[selected_col], ax=ax2)
+
+    st.pyplot(fig2)
+
+    # ---------- OUTLIER HANDLING ----------
+    st.subheader("🛠 Handle Outliers (IQR Method)")
+
+    Q1 = df[selected_col].quantile(0.25)
+    Q3 = df[selected_col].quantile(0.75)
+    IQR = Q3 - Q1
+
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+
+    st.info(f"Lower Bound: {lower:.2f} | Upper Bound: {upper:.2f}")
+
+    out_method = st.selectbox(
+        "Outlier Treatment Method",
+        ["Do Nothing", "Remove Outliers", "Cap Outliers"]
+    )
+
+    if st.button("Apply Outlier Treatment"):
+
+        if out_method == "Remove Outliers":
+
+            df = df[(df[selected_col] >= lower) & (df[selected_col] <= upper)]
+
+            st.session_state.data = df
+
+            st.success("Outliers Removed ✔")
+
+        elif out_method == "Cap Outliers":
+
+            df[selected_col] = np.where(
+                df[selected_col] < lower,
+                lower,
+                np.where(df[selected_col] > upper, upper, df[selected_col])
+            )
+
+            st.session_state.data = df
+
+            st.success("Outliers Capped ✔")
+
 
 
 # ================= FEATURE ENGINEERING =================
@@ -556,6 +666,7 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
 
