@@ -232,7 +232,6 @@ elif menu == "📁 Upload":
         st.success("Uploaded Successfully")
 
         st.dataframe(st.session_state.data.head())
-
 # ================= ANALYSIS =================
 
 elif menu == "📈 Analysis":
@@ -245,49 +244,93 @@ elif menu == "📈 Analysis":
 
     st.title("📈 Data Overview & Analysis")
 
-    # -------- BASIC FEATURES --------
-    st.subheader("📄 Dataset Preview")
+    # ================= VIEW MODE =================
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "Head",
-        "Tail",
-        "Shape",
-        "Columns",
-        "Dtypes",
-        "Info"
-    ])
-
-    with tab1:
-        st.write("First 5 Rows")
-        st.dataframe(df.head())
-
-    with tab2:
-        st.write("Last 5 Rows")
-        st.dataframe(df.tail())
-
-    with tab3:
-        st.write("Dataset Shape")
-        st.info(f"Rows: {df.shape[0]} | Columns: {df.shape[1]}")
-
-    with tab4:
-        st.write("Column Names")
-        st.write(list(df.columns))
-
-    with tab5:
-        st.write("Data Types")
-        st.dataframe(df.dtypes)
-
-    with tab6:
-        st.write("Dataset Info")
-
-        buffer = io.StringIO()
-        df.info(buf=buffer)
-        s = buffer.getvalue()
-
-        st.text(s)
+    view_mode = st.radio(
+        "Select View Mode",
+        ["Tabbed View", "Detailed View"]
+    )
 
     st.markdown("---")
 
+    # ================= TABBED VIEW =================
+
+    if view_mode == "Tabbed View":
+
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            "Head",
+            "Tail",
+            "Shape",
+            "Columns",
+            "Dtypes",
+            "Info"
+        ])
+
+        with tab1:
+            st.subheader("First 5 Rows")
+            st.dataframe(df.head())
+
+        with tab2:
+            st.subheader("Last 5 Rows")
+            st.dataframe(df.tail())
+
+        with tab3:
+            st.subheader("Dataset Shape")
+            st.info(f"Rows: {df.shape[0]} | Columns: {df.shape[1]}")
+
+        with tab4:
+            st.subheader("Column Names")
+            st.write(list(df.columns))
+
+        with tab5:
+            st.subheader("Data Types")
+            st.dataframe(df.dtypes)
+
+        with tab6:
+            st.subheader("Dataset Info")
+
+            buffer = io.StringIO()
+            df.info(buf=buffer)
+            st.text(buffer.getvalue())
+
+
+    # ================= DETAILED VIEW =================
+
+    else:
+
+        st.subheader("📌 First 5 Rows (Head)")
+        st.dataframe(df.head())
+
+        st.markdown("---")
+
+        st.subheader("📌 Last 5 Rows (Tail)")
+        st.dataframe(df.tail())
+
+        st.markdown("---")
+
+        st.subheader("📌 Dataset Shape")
+        st.info(f"Rows: {df.shape[0]} | Columns: {df.shape[1]}")
+
+        st.markdown("---")
+
+        st.subheader("📌 Column Names")
+        st.write(list(df.columns))
+
+        st.markdown("---")
+
+        st.subheader("📌 Data Types")
+        st.dataframe(df.dtypes)
+
+        st.markdown("---")
+
+        st.subheader("📌 Dataset Info")
+
+        buffer = io.StringIO()
+        df.info(buf=buffer)
+        st.text(buffer.getvalue())
+
+    st.markdown("===")
+    
     # -------- FULL DATA VIEW --------
     st.subheader("📊 Full Dataset")
 
@@ -295,13 +338,14 @@ elif menu == "📈 Analysis":
         st.dataframe(df)
 
     st.markdown("---")
+    
+    # ================= VISUALIZATION =================
 
-    # -------- CHART (STANDARD+) --------
     if st.session_state.plan == "Basic":
         st.warning("🔒 Upgrade to Standard to use Charts")
         st.stop()
 
-    st.subheader("📈 Visualization")
+    st.subheader("📊 Data Visualization")
 
     num_cols = df.select_dtypes(np.number).columns
 
@@ -331,7 +375,7 @@ elif menu == "📈 Analysis":
         df[col].value_counts().plot.pie(ax=ax)
 
     st.pyplot(fig)
-
+   
 
 # ================= ADVANCED EDA =================
 
@@ -908,6 +952,7 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
 
