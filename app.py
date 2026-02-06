@@ -37,7 +37,7 @@ PREMIUM_PASS = st.secrets["PREMIUM_PASS"]
 
 
 
-# ================= SESSION =================
+# ================= SESSION ================
 
 if "plan" not in st.session_state:
     st.session_state.plan = "Basic"
@@ -595,6 +595,7 @@ elif menu == "⬇ Export":
         "text/csv"
     )
 
+
 # ================= ML =================
 
 elif menu == "🤖 ML Studio":
@@ -603,199 +604,163 @@ elif menu == "🤖 ML Studio":
         st.error("🔒 Premium Only")
         st.stop()
 
-    import pandas as pd
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import seaborn as sns
+    st.title("🤖 ML Studio - AutoML Dashboard")
 
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import LabelEncoder, StandardScaler
+    df = st.session_state.data
+
+    if df is None:
+        st.warning("Upload data first")
+        st.stop()
+
+    # ================= TARGET & FEATURES =================
+
+    st.subheader("📌 Select Target & Features")
+
+    target = st.selectbox("Select Target (Dependent Variable)", df.columns)
+
+    feature_cols = st.multiselect(
+        "Select Features (Independent Variables)",
+        df.select_dtypes(np.number).columns
+    )
+
+    test_size = st.slider(
+        "Test Size (%)",
+        10, 50, 20
+    ) / 100
+
+    st.markdown("---")
+
+    # ================= IMPORTS =================
+
     from sklearn.linear_model import LinearRegression, LogisticRegression
-    from sklearn.tree import DecisionTreeClassifier
-    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+    from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+    from sklearn.ensemble import (
+        RandomForestClassifier,
+        RandomForestRegressor,
+        GradientBoostingClassifier,
+        GradientBoostingRegressor
+    )
+
     from sklearn.metrics import (
-        accuracy_score, r2_score,
-        confusion_matrix, classification_report
+        accuracy_score,
+        mean_squared_error,
+        r2_score
     )
 
-    st.title("🤖 ML Model Comparison Dashboard")
+    # ================= PROBLEM TYPE =================
 
-    df = st.session_state.data.copy()
+    y = df[target]
 
-    # -------------------------------
-    # Handle Categorical
-    # -------------------------------
-    cat_cols = df.select_dtypes(include="object").columns
+    is_classification = y.nunique() <= 10
 
-    if len(cat_cols) > 0:
-
-        st.info("Encoding Categorical Columns")
-
-        le = LabelEncoder()
-
-        for col in cat_cols:
-            df[col] = le.fit_transform(df[col])
-
-
-    # -------------------------------
-    # Select Target
-    # -------------------------------
-    target = st.selectbox("🎯 Select Target Column", df.columns)
-
-    features = st.multiselect(
-        "📌 Select Feature Columns",
-        [c for c in df.columns if c != target]
+    st.info(
+        "Problem Type: " +
+        ("Classification" if is_classification else "Regression")
     )
 
-    test_size = st.slider("Test Size (%)", 10, 40, 20)
+    st.markdown("---")
 
-    if st.button("🚀 Train & Compare Models"):
+    # ================= TRAIN =================
 
-        # -------------------------------
-        # Split X and Y
-        # -------------------------------
-        X = df[features]
+    if st.button("🚀 Run Model Comparison"):
+
+        # ---------------- Split ----------------
+
+        X = df[feature_cols]
         y = df[target]
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, y,
-            test_size=test_size/100,
+            test_size=test_size,
             random_state=42
         )
 
-        # -------------------------------
-        # Scaling
-        # -------------------------------
-        scaler = StandardScaler()
+        # ---------------- Models ----------------
 
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+        models = {}
 
-
-        # -------------------------------
-        # Detect Problem Type
-        # -------------------------------
-        problem = "Regression" if y.nunique() > 10 else "Classification"
-
-        st.success(f"Detected: {problem}")
-
-
-        results = []
-
-
-        # -------------------------------
-        # REGRESSION
-        # -------------------------------
-        if problem == "Regression":
+        if is_classification:
 
             models = {
-                "Linear Regression": LinearRegression()
-            }
-
-            for name, model in models.items():
-
-                model.fit(X_train, y_train)
-
-                preds = model.predict(X_test)
-
-                score = r2_score(y_test, preds)
-
-                results.append([name, score])
-
-
-            df_result = pd.DataFrame(
-                results,
-                columns=["Model", "R2 Score"]
-            )
-
-            st.subheader("🏆 Model Leaderboard")
-
-            st.dataframe(df_result.sort_values("R2 Score", ascending=False))
-
-
-        # -------------------------------
-        # CLASSIFICATION
-        # -------------------------------
-        else:
-
-            models = {
-                "Logistic Regression": LogisticRegression(),
+                "Logistic Regression": LogisticRegression(max_iter=1000),
                 "Decision Tree": DecisionTreeClassifier(),
                 "Random Forest": RandomForestClassifier(),
                 "Gradient Boosting": GradientBoostingClassifier()
             }
 
+        else:
 
-            for name, model in models.items():
+            models = {
+                "Linear Regression": LinearRegression(),
+                "Decision Tree": DecisionTreeRegressor(),
+                "Random Forest": RandomForestRegressor(),
+                "Gradient Boosting": GradientBoostingRegressor()
+            }
 
-                model.fit(X_train, y_train)
+        results = []
 
-                preds = model.predict(X_test)
+        best_model = None
+        best_score = -999
 
-                acc = accuracy_score(y_test, preds)
+        # ---------------- Train Loop ----------------
 
-                results.append([name, acc, preds])
+        for name, model in models.items():
 
+            model.fit(X_train, y_train)
 
-            df_result = pd.DataFrame(
-                results,
-                columns=["Model", "Accuracy", "Predictions"]
-            )
+            y_pred = model.predict(X_test)
 
+            # -------- Classification --------
+            if is_classification:
 
-            st.subheader("🏆 Model Leaderboard")
+                score = accuracy_score(y_test, y_pred)
 
-            st.dataframe(
-                df_result[["Model","Accuracy"]]
-                .sort_values("Accuracy", ascending=False)
-            )
+                metric_name = "Accuracy"
 
+            # -------- Regression --------
+            else:
 
-            # -------------------------------
-            # Best Model
-            # -------------------------------
-            best = df_result.sort_values(
-                "Accuracy", ascending=False
-            ).iloc[0]
+                score = r2_score(y_test, y_pred)
 
-            st.success(f"Best Model: {best['Model']}")
+                metric_name = "R² Score"
 
-            best_preds = best["Predictions"]
+            results.append({
+                "Model": name,
+                metric_name: round(score, 4)
+            })
 
+            # -------- Best Model --------
+            if score > best_score:
 
-            # -------------------------------
-            # Confusion Matrix
-            # -------------------------------
-            cm = confusion_matrix(y_test, best_preds)
+                best_score = score
+                best_model = model
+                best_name = name
 
-            fig, ax = plt.subplots()
+        # ================= RESULTS =================
 
-            sns.heatmap(
-                cm,
-                annot=True,
-                fmt="d",
-                cmap="Blues",
-                ax=ax
-            )
+        st.success("✅ Model Comparison Completed")
 
-            ax.set_title("Confusion Matrix")
+        st.subheader("📊 Model Performance Comparison")
 
-            st.pyplot(fig)
+        result_df = pd.DataFrame(results)
 
+        st.dataframe(result_df)
 
-            # -------------------------------
-            # Classification Report
-            # -------------------------------
-            st.subheader("📊 Performance Report")
+        st.markdown("---")
 
-            report = classification_report(
-                y_test,
-                best_preds,
-                output_dict=True
-            )
+        # ================= BEST MODEL =================
 
-            st.dataframe(pd.DataFrame(report).T)
+        st.subheader("🏆 Best Model")
 
+        st.success(f"Best Model: **{best_name}**")
+
+        st.metric(metric_name, round(best_score, 4))
+
+        # ================= SAVE =================
+
+        joblib.dump(best_model, "best_model.pkl")
+
+        st.success("💾 Best Model Saved as best_model.pkl")
 
 
 
@@ -906,6 +871,7 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
 
