@@ -966,6 +966,110 @@ elif menu == "📄 Reports":
             "application/pdf"
         )
 
+# ================= BUSINESS INTEL =================
+
+elif menu == "💼 Business Intel":
+
+    # -------- Premium Lock --------
+    if st.session_state.plan != "Premium":
+        st.error("🔒 Upgrade to Premium to access Business Intelligence")
+        st.stop()
+
+    if st.session_state.data is None:
+        st.warning("Upload data first")
+        st.stop()
+
+    st.title("💼 AI Business Intelligence")
+
+    df = st.session_state.data
+
+    st.subheader("📊 Smart Business Analysis")
+
+    num_cols = df.select_dtypes(np.number).columns
+
+    if len(num_cols) == 0:
+        st.warning("No numeric data found for analysis")
+        st.stop()
+
+    # ================= KPI ANALYSIS =================
+
+    st.markdown("### 📈 Key Performance Indicators")
+
+    for col in num_cols[:5]:
+
+        avg = df[col].mean()
+        mx = df[col].max()
+        mn = df[col].min()
+
+        st.metric(
+            label=col,
+            value=f"{avg:.2f}",
+            delta=f"Max: {mx:.2f} | Min: {mn:.2f}"
+        )
+
+    st.markdown("---")
+
+    # ================= RISK ANALYSIS =================
+
+    st.markdown("### ⚠️ Risk & Stability Analysis")
+
+    for col in num_cols:
+
+        std = df[col].std()
+
+        if std > df[col].mean() * 0.5:
+
+            st.warning(f"📌 High Risk: '{col}' has high volatility")
+
+        else:
+
+            st.success(f"✅ Stable: '{col}' is stable")
+
+    st.markdown("---")
+
+    # ================= TREND DETECTION =================
+
+    st.markdown("### 📉 Trend Detection")
+
+    for col in num_cols:
+
+        trend = df[col].corr(pd.Series(range(len(df))))
+
+        if trend > 0.4:
+
+            st.write(f"📈 {col} → Growing Trend")
+
+        elif trend < -0.4:
+
+            st.write(f"📉 {col} → Declining Trend")
+
+        else:
+
+            st.write(f"➡️ {col} → Stable Trend")
+
+    st.markdown("---")
+
+    # ================= AI RECOMMENDATIONS =================
+
+    st.markdown("### 🤖 AI Business Recommendations")
+
+    rec = []
+
+    if df.isnull().sum().sum() > 0:
+        rec.append("Improve data quality (missing values detected)")
+
+    if len(num_cols) > 3:
+        rec.append("Use dimensionality reduction for ML models")
+
+    rec.append("Focus on high-performing KPIs")
+    rec.append("Monitor risky variables monthly")
+    rec.append("Apply predictive modeling for forecasting")
+
+    for i, r in enumerate(rec, 1):
+        st.write(f"{i}. {r}")
+
+    st.success("✅ Business Intelligence Generated Successfully")
+
 
 # ================= UPGRADE =================
 
@@ -1049,6 +1153,7 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
 
