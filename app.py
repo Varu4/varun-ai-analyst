@@ -375,7 +375,104 @@ elif menu == "📈 Analysis":
         df[col].value_counts().plot.pie(ax=ax)
 
     st.pyplot(fig)
-   
+
+        st.markdown("===")
+
+    # ================= BUSINESS INSIGHTS =================
+
+    st.subheader("🤖 Auto Business Insight Generator")
+
+    if st.button("Generate Insights"):
+
+        insights = []
+
+        # 1️⃣ Missing Values Check
+        missing = df.isnull().sum()
+        missing_cols = missing[missing > 0]
+
+        if len(missing_cols) > 0:
+            insights.append(
+                f"⚠️ Missing values found in: {list(missing_cols.index)}"
+            )
+        else:
+            insights.append("✅ No missing values detected")
+
+        # 2️⃣ Outlier Detection (IQR Method)
+        num_cols = df.select_dtypes(include=np.number).columns
+
+        for col in num_cols:
+
+            Q1 = df[col].quantile(0.25)
+            Q3 = df[col].quantile(0.75)
+            IQR = Q3 - Q1
+
+            lower = Q1 - 1.5 * IQR
+            upper = Q3 + 1.5 * IQR
+
+            outliers = df[(df[col] < lower) | (df[col] > upper)]
+
+            if len(outliers) > 0:
+                insights.append(
+                    f"📌 {len(outliers)} potential outliers detected in '{col}'"
+                )
+
+        # 3️⃣ Trend Analysis
+        for col in num_cols:
+
+            if df[col].nunique() > 5:
+
+                trend = df[col].corr(pd.Series(range(len(df))))
+
+                if trend > 0.5:
+                    insights.append(f"📈 '{col}' shows strong upward trend")
+
+                elif trend < -0.5:
+                    insights.append(f"📉 '{col}' shows strong downward trend")
+
+        # 4️⃣ Distribution Check
+        for col in num_cols:
+
+            skew = df[col].skew()
+
+            if skew > 1:
+                insights.append(f"➡️ '{col}' is highly right-skewed")
+
+            elif skew < -1:
+                insights.append(f"⬅️ '{col}' is highly left-skewed")
+
+        # 5️⃣ Basic Statistics Summary
+        stats = df[num_cols].describe()
+
+        st.markdown("### 📊 Statistical Summary")
+        st.dataframe(stats)
+
+        # ================= DISPLAY INSIGHTS =================
+
+        st.markdown("### 💡 Key Business Insights")
+
+        if len(insights) == 0:
+            st.success("No major issues detected. Dataset looks healthy.")
+
+        else:
+            for i, insight in enumerate(insights, 1):
+                st.write(f"{i}. {insight}")
+
+        # ================= RECOMMENDATIONS =================
+
+        st.markdown("### 🚀 Recommendations")
+
+        if len(missing_cols) > 0:
+            st.write("✔ Consider handling missing values (mean/median/imputation).")
+
+        if len(num_cols) > 0:
+            st.write("✔ Consider scaling numeric features for ML models.")
+
+        st.write("✔ Use detected trends for forecasting & planning.")
+        st.write("✔ Investigate outliers for business risks/opportunities.")
+        st.write("✔ Improve data quality for better decisions.")
+
+        st.success("Insight Generation Completed ✅")
+
 
 # ================= ADVANCED EDA =================
 
@@ -952,6 +1049,7 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
 
