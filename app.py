@@ -376,7 +376,7 @@ elif menu == "📈 Analysis":
 
     st.pyplot(fig)
 
-        st.markdown("===")
+    st.markdown("===")
 
     # ================= BUSINESS INSIGHTS =================
 
@@ -1049,6 +1049,7 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
 
