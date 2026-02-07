@@ -62,12 +62,10 @@ menu = st.sidebar.radio(
         "📊 Advanced EDA",
         "⚙ Feature Engineering",
         "📌 Custom KPIs",
-        "📄 Report",
         "⬇ Export",
-        "💼 Business Intel",
         "🤖 ML Studio",
         "📄 Reports",
-        "🌐 API Demo",
+        "💼 Business Intel",
         "⏰ Scheduler",
         "💳 Upgrade",
         "👤 Account"
@@ -1153,6 +1151,7 @@ elif menu == "👤 Account":
 
     if st.button("Send"):
         st.success("Message Sent ✔")
+
 
 
 
