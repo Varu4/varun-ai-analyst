@@ -1,1168 +1,360 @@
 # ==================================================
-# VARUN AI DATA ANALYST - SAAS MASTER SYSTEM
+# PRO-DATA AI AGENT: FREELANCE EDITION
 # Author: Varun Walekar
+# Version: 3.0 (Production Ready)
 # ==================================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import io
-import datetime
-import requests
-import joblib
-import os
-from sklearn.linear_model import LinearRegression
+import plotly.express as px
+import time
+from fpdf import FPDF
+from io import BytesIO
+
+# Machine Learning Imports
 from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score, r2_score
 
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
-
-
-# ================= CONFIG =================
-
+# --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Varun AI Analyst",
+    page_title="ProData AI Analyst",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-
-# ================= PASSWORDS =================
-
-STANDARD_PASS = st.secrets["STANDARD_PASS"]
-PREMIUM_PASS = st.secrets["PREMIUM_PASS"]
-
-
-
-# ================= SESSION ================
-
-if "plan" not in st.session_state:
-    st.session_state.plan = "Basic"
-
-if "data" not in st.session_state:
-    st.session_state.data = None
-
-if "multi_data" not in st.session_state:
-    st.session_state.multi_data = []
-
-
-# ================= SIDEBAR =================
-
-st.sidebar.title("📊 Varun AI Analyst")
-
-menu = st.sidebar.radio(
-    "Navigation",
-    [
-        "🏠 Home",
-        "📁 Upload",
-        "📈 Analysis",
-        "📊 Advanced EDA",
-        "⚙ Feature Engineering",
-        "📌 Custom KPIs",
-        "⬇ Export",
-        "🤖 ML Studio",
-        "📄 Reports",
-        "💼 Business Intel",
-        "⏰ Scheduler",
-        "💳 Upgrade",
-        "👤 Account"
-    ]
-)
-
-st.sidebar.markdown("---")
-st.sidebar.write(f"💼 Plan: **{st.session_state.plan}**")
-
-
-# ================= UTILITIES =================
-
-def ai_summary(df):
-
-    return f"""
-Rows: {df.shape[0]}
-Columns: {df.shape[1]}
-Missing Values: {df.isnull().sum().sum()}
-Numeric Columns: {df.select_dtypes(np.number).shape[1]}
-Generated: {datetime.datetime.now()}
-"""
-
-
-def business_insights(df):
-
-    insights = []
-
-    nums = df.select_dtypes(np.number)
-
-    if not nums.empty:
-
-        insights.append(f"Top KPI: {nums.mean().idxmax()}")
-        insights.append(f"Weak KPI: {nums.mean().idxmin()}")
-        insights.append(f"High Risk: {nums.std().idxmax()}")
-
-    if df.isnull().sum().sum() > 0:
-        insights.append("Improve data quality")
-
-    insights.append("Enable automation")
-
-    return insights
-
-
-def generate_pdf(df, summary):
-
-    buffer = io.BytesIO()
-
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    styles = getSampleStyleSheet()
-
-    elements = []
-
-    # ================= TITLE =================
-
-    elements.append(Paragraph("AI Business Report", styles["Title"]))
-    elements.append(Spacer(1, 20))
-
-    # ================= SUMMARY =================
-
-    elements.append(Paragraph("Summary", styles["Heading2"]))
-    elements.append(Paragraph(summary.replace("\n", "<br/>"), styles["Normal"]))
-    elements.append(Spacer(1, 15))
-
-    # ================= INSIGHTS =================
-
-    elements.append(Paragraph("Insights", styles["Heading2"]))
-
-    for i in business_insights(df):
-        elements.append(Paragraph("- " + i, styles["Normal"]))
-
-    elements.append(Spacer(1, 20))
-
-    # ================= CHARTS =================
-
-    elements.append(Paragraph("Data Visualizations", styles["Heading2"]))
-    elements.append(Spacer(1, 10))
-
-    numeric_cols = df.select_dtypes(np.number).columns
-
-    for col in numeric_cols[:3]:   # Max 3 charts (keeps PDF clean)
-
-        # Create chart
-        plt.figure()
-        df[col].hist()
-        plt.title(col)
-
-        img_path = f"{col}_chart.png"
-
-        plt.savefig(img_path)
-        plt.close()
-
-        # Add image to PDF
-        elements.append(Image(img_path, width=400, height=250))
-        elements.append(Spacer(1, 15))
-
-        # Remove temp file
-        os.remove(img_path)
-
-    # ================= BUILD =================
-
-    doc.build(elements)
-
-    buffer.seek(0)
-
-    return buffer
-
-
-
-# ================= HOME =================
-
-if menu == "🏠 Home":
-
-    st.title("🤖 AI Data Analyst Platform")
-
-    st.subheader("AI-Powered Analytics for Business & Freelancing")
-
-    st.markdown("""
-### Analyze • Predict • Report • Grow
-
-✔ Data Cleaning  
-✔ AI Reports  
-✔ Machine Learning  
-✔ Business Intelligence  
-✔ Automation  
-
-✅ Free Demo (Basic Access)
-""")
-
-    st.success("Upload your dataset to start 🚀")
-
-
-# ================= UPLOAD =================
-
-elif menu == "📁 Upload":
-
-    st.title("📁 Upload Dataset")
-
-    st.info("Basic: 2MB | Standard/Premium: Unlimited")
-
-    files = st.file_uploader(
-        "Upload CSV / Excel",
-        ["csv", "xlsx"],
-        accept_multiple_files=True
-    )
-
-    if files:
-
-        for file in files:
-
-            if st.session_state.plan == "Basic" and file.size > 2*1024*1024:
-                st.error("Basic limit: 2MB")
-                continue
-
-            if file.name.endswith(".csv"):
-                df = pd.read_csv(file)
+# --- CUSTOM CSS FOR PROFESSIONAL LOOK ---
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    h1, h2, h3 { font-family: 'Sans-Serif'; color: #2c3e50; }
+    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #007bff; color: white; font-weight: bold;}
+    .stButton>button:hover { background-color: #0056b3; border: none; }
+    .metric-card { background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- CLASS: PDF GENERATOR ---
+class PDFReport(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 16)
+        self.cell(0, 10, 'AI Data Analysis Report', 0, 1, 'C')
+        self.ln(5)
+        self.set_font('Arial', 'I', 10)
+        self.cell(0, 10, 'Generated by ProData AI Agent', 0, 1, 'C')
+        self.ln(10)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+
+    def chapter_title(self, title):
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 10, title, 0, 1, 'L')
+        self.ln(2)
+
+    def chapter_body(self, body):
+        self.set_font('Arial', '', 10)
+        self.multi_cell(0, 8, body)
+        self.ln()
+
+# --- HELPER FUNCTION: SMART CLEANER ---
+def smart_cleaner(df):
+    """
+    Intelligently cleans a dataset:
+    1. Standardizes column names.
+    2. Drops empty columns.
+    3. Fills numeric missing values with Median.
+    4. Fills categorical missing values with Mode.
+    """
+    df = df.copy()
+    
+    # 1. Standardize Headers
+    df.columns = [str(c).strip().lower().replace(" ", "_").replace("-", "_") for c in df.columns]
+    
+    # 2. Remove Empty Columns
+    df = df.dropna(axis=1, how='all')
+
+    # 3. Intelligent Filling
+    for col in df.columns:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            # Fill numbers with Median (Robust to outliers)
+            df[col] = df[col].fillna(df[col].median())
+        else:
+            # Fill text with Mode (Most frequent) or "Unknown"
+            if not df[col].mode().empty:
+                df[col] = df[col].fillna(df[col].mode()[0])
             else:
-                df = pd.read_excel(file)
+                df[col] = df[col].fillna("Unknown")
+    
+    return df
 
-            st.session_state.data = df
-            st.session_state.multi_data.append(df)
+# --- MAIN APP LOGIC ---
 
-        st.success("Uploaded Successfully")
+def main():
+    # Session State Initialization
+    if 'df_clean' not in st.session_state:
+        st.session_state['df_clean'] = None
+    if 'model_score' not in st.session_state:
+        st.session_state['model_score'] = None
 
-        st.dataframe(st.session_state.data.head())
-# ================= ANALYSIS =================
+    # --- SIDEBAR ---
+    with st.sidebar:
+        st.image("https://cdn-icons-png.flaticon.com/512/2103/2103633.png", width=80)
+        st.title("ProData AI")
+        st.write("Professional Automated Data Analyst")
+        st.divider()
+        
+        uploaded_file = st.file_uploader("📂 Upload Dataset", type=['csv', 'xlsx'])
+        
+        st.info("Supported formats: .CSV, .XLSX")
+        st.caption("v3.0 - Freelance Edition")
 
-elif menu == "📈 Analysis":
+    # --- HOME PAGE (If no data) ---
+    if uploaded_file is None:
+        st.title("👋 Welcome to ProData AI")
+        st.markdown("""
+        ### Your Virtual Data Scientist
+        This tool automates the boring parts of data analysis so you can focus on insights.
+        
+        **Capabilities:**
+        - 🧹 **Auto-Clean:** Detects and fixes messy data instantly.
+        - 📈 **Smart Charts:** Interactive visualizations powered by Plotly.
+        - 🤖 **AutoML:** Trains Predictive Models (Regression/Classification) automatically.
+        - 📄 **PDF Reports:** Generates professional audit reports for clients.
+        
+        *👈 Upload a file in the sidebar to begin!*
+        """)
+        
+        # Example Data Demo
+        if st.button("Load Demo Data (Titanic)"):
+            url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
+            df = pd.read_csv(url)
+            st.session_state['df_clean'] = smart_cleaner(df)
+            st.rerun()
 
-    if st.session_state.data is None:
-        st.warning("Upload data first")
-        st.stop()
+    # --- DASHBOARD (If data exists) ---
+    else:
+        # Load Data once
+        if st.session_state['df_clean'] is None:
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+            st.session_state['df_clean'] = df  # Save initial raw data
 
-    df = st.session_state.data
+        df = st.session_state['df_clean']
 
-    st.title("📈 Data Overview & Analysis")
-
-    # ================= VIEW MODE =================
-
-    view_mode = st.radio(
-        "Select View Mode",
-        ["Tabbed View", "Detailed View"]
-    )
-
-    st.markdown("---")
-
-    # ================= TABBED VIEW =================
-
-    if view_mode == "Tabbed View":
-
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-            "Head",
-            "Tail",
-            "Shape",
-            "Columns",
-            "Dtypes",
-            "Info"
+        # --- LAYOUT TABS ---
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "🔍 Data Inspector", 
+            "📊 Visual Analytics", 
+            "🤖 ML Studio", 
+            "📑 Client Report"
         ])
 
+        # --- TAB 1: INSPECTOR ---
         with tab1:
-            st.subheader("First 5 Rows")
-            st.dataframe(df.head())
+            st.header("🔍 Data Inspector & Cleaner")
+            
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Rows", df.shape[0])
+            c2.metric("Columns", df.shape[1])
+            c3.metric("Missing Values", df.isna().sum().sum())
+            c4.metric("Duplicates", df.duplicated().sum())
 
+            col_action, col_preview = st.columns([1, 3])
+            
+            with col_action:
+                st.markdown("### 🛠 Actions")
+                if st.button("✨ Run Smart Cleaner"):
+                    with st.spinner("Standardizing & Cleaning..."):
+                        time.sleep(1)
+                        df_cleaned = smart_cleaner(df)
+                        st.session_state['df_clean'] = df_cleaned
+                        st.success("Cleaned Successfully!")
+                        st.rerun()
+                
+                if st.button("🔄 Reset Data"):
+                    st.session_state['df_clean'] = None
+                    st.rerun()
+
+            with col_preview:
+                st.markdown("### 📋 Data Preview")
+                st.dataframe(df.head(10), use_container_width=True)
+                
+                with st.expander("Show Column Types"):
+                    st.json(df.dtypes.astype(str).to_dict())
+
+        # --- TAB 2: VISUALS ---
         with tab2:
-            st.subheader("Last 5 Rows")
-            st.dataframe(df.tail())
+            st.header("📊 Interactive Visual Analytics")
+            
+            c1, c2 = st.columns([1, 3])
+            
+            with c1:
+                st.subheader("Chart Config")
+                chart_type = st.selectbox("Chart Type", ["Scatter Plot", "Line Chart", "Bar Chart", "Histogram", "Box Plot"])
+                
+                numeric_cols = df.select_dtypes(include=np.number).columns
+                all_cols = df.columns
+                
+                x_axis = st.selectbox("X-Axis", all_cols)
+                y_axis = st.selectbox("Y-Axis", numeric_cols)
+                color_by = st.selectbox("Color By (Optional)", [None] + list(all_cols))
+            
+            with c2:
+                if chart_type == "Scatter Plot":
+                    fig = px.scatter(df, x=x_axis, y=y_axis, color=color_by, title=f"{y_axis} vs {x_axis}")
+                elif chart_type == "Line Chart":
+                    fig = px.line(df, x=x_axis, y=y_axis, color=color_by, title=f"{y_axis} Trend")
+                elif chart_type == "Bar Chart":
+                    fig = px.bar(df, x=x_axis, y=y_axis, color=color_by, title=f"{y_axis} by {x_axis}")
+                elif chart_type == "Histogram":
+                    fig = px.histogram(df, x=x_axis, color=color_by, title=f"Distribution of {x_axis}")
+                elif chart_type == "Box Plot":
+                    fig = px.box(df, x=x_axis, y=y_axis, color=color_by, title=f"{y_axis} Distribution by {x_axis}")
+                
+                st.plotly_chart(fig, use_container_width=True)
 
+        # --- TAB 3: ML STUDIO ---
         with tab3:
-            st.subheader("Dataset Shape")
-            st.info(f"Rows: {df.shape[0]} | Columns: {df.shape[1]}")
+            st.header("🤖 AutoML Studio")
+            st.write("Train an AI model to predict a target variable.")
 
+            c1, c2 = st.columns([1, 2])
+            
+            with c1:
+                target = st.selectbox("🎯 Target Variable (What to predict?)", df.columns)
+                features = st.multiselect("⚙️ Features (Predictors)", [c for c in df.columns if c != target])
+                
+                split_size = st.slider("Train/Test Split", 0.1, 0.5, 0.2)
+                
+                start_train = st.button("🚀 Train Model")
+
+            with c2:
+                if start_train and features:
+                    try:
+                        with st.spinner("Training best fit model..."):
+                            # Prepare Data
+                            X = df[features]
+                            y = df[target]
+                            
+                            # Simple Encoding for Categorical Features
+                            X = pd.get_dummies(X, drop_first=True)
+                            
+                            # Determine Task Type
+                            is_classification = False
+                            if pd.api.types.is_object_dtype(y) or y.nunique() < 10:
+                                is_classification = True
+                                le = LabelEncoder()
+                                y = le.fit_transform(y)
+                            
+                            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=split_size, random_state=42)
+                            
+                            # Pipeline Construction
+                            if is_classification:
+                                model = RandomForestClassifier(n_estimators=100, random_state=42)
+                                model_type = "Classification (Random Forest)"
+                            else:
+                                model = RandomForestRegressor(n_estimators=100, random_state=42)
+                                model_type = "Regression (Random Forest)"
+                                
+                            pipeline = Pipeline([
+                                ('scaler', StandardScaler()),
+                                ('model', model)
+                            ])
+                            
+                            pipeline.fit(X_train, y_train)
+                            y_pred = pipeline.predict(X_test)
+                            
+                            # Evaluation
+                            if is_classification:
+                                score = accuracy_score(y_test, y_pred)
+                                metric_name = "Accuracy"
+                            else:
+                                score = r2_score(y_test, y_pred)
+                                metric_name = "R² Score"
+                            
+                            st.session_state['model_score'] = f"{round(score*100, 2)}%"
+                            st.session_state['target_col'] = target
+                            
+                            st.success(f"Model Trained: {model_type}")
+                            st.metric(metric_name, f"{round(score*100, 2)}%")
+                            
+                            # Feature Importance Chart
+                            importances = pipeline.named_steps['model'].feature_importances_
+                            feat_df = pd.DataFrame({'Feature': X.columns, 'Importance': importances}).sort_values(by='Importance', ascending=True)
+                            fig_imp = px.bar(feat_df, x='Importance', y='Feature', orientation='h', title="Feature Importance")
+                            st.plotly_chart(fig_imp, use_container_width=True)
+                            
+                    except Exception as e:
+                        st.error(f"Training Failed: {str(e)}")
+                        st.error("Tip: Try cleaning the data first or selecting different columns.")
+                elif start_train and not features:
+                    st.warning("Please select at least one feature.")
+
+        # --- TAB 4: REPORTS ---
         with tab4:
-            st.subheader("Column Names")
-            st.write(list(df.columns))
-
-        with tab5:
-            st.subheader("Data Types")
-            st.dataframe(df.dtypes)
-
-        with tab6:
-            st.subheader("Dataset Info")
-
-            buffer = io.StringIO()
-            df.info(buf=buffer)
-            st.text(buffer.getvalue())
-
-
-    # ================= DETAILED VIEW =================
-
-    else:
-
-        st.subheader("📌 First 5 Rows (Head)")
-        st.dataframe(df.head())
-
-        st.markdown("---")
-
-        st.subheader("📌 Last 5 Rows (Tail)")
-        st.dataframe(df.tail())
-
-        st.markdown("---")
-
-        st.subheader("📌 Dataset Shape")
-        st.info(f"Rows: {df.shape[0]} | Columns: {df.shape[1]}")
-
-        st.markdown("---")
-
-        st.subheader("📌 Column Names")
-        st.write(list(df.columns))
-
-        st.markdown("---")
-
-        st.subheader("📌 Data Types")
-        st.dataframe(df.dtypes)
-
-        st.markdown("---")
-
-        st.subheader("📌 Dataset Info")
-
-        buffer = io.StringIO()
-        df.info(buf=buffer)
-        st.text(buffer.getvalue())
-
-    st.markdown("===")
-    
-    # -------- FULL DATA VIEW --------
-    st.subheader("📊 Full Dataset")
-
-    if st.checkbox("Show Full Data"):
-        st.dataframe(df)
-
-    st.markdown("---")
-    
-    # ================= VISUALIZATION =================
-
-    if st.session_state.plan == "Basic":
-        st.warning("🔒 Upgrade to Standard to use Charts")
-        st.stop()
-
-    st.subheader("📊 Data Visualization")
-
-    num_cols = df.select_dtypes(np.number).columns
-
-    if len(num_cols) == 0:
-        st.warning("No numeric columns found")
-        st.stop()
-
-    col = st.selectbox("Select Column", num_cols)
-
-    chart = st.selectbox(
-        "Chart Type",
-        ["Line", "Bar", "Histogram", "Pie"]
-    )
-
-    fig, ax = plt.subplots()
-
-    if chart == "Line":
-        df[col].plot(ax=ax)
-
-    elif chart == "Bar":
-        df[col].value_counts().plot.bar(ax=ax)
-
-    elif chart == "Histogram":
-        df[col].plot.hist(ax=ax)
-
-    elif chart == "Pie":
-        df[col].value_counts().plot.pie(ax=ax)
-
-    st.pyplot(fig)
-
-    st.markdown("===")
-
-    # ================= BUSINESS INSIGHTS =================
-
-    st.subheader("🤖 Auto Business Insight Generator")
-
-    if st.button("Generate Insights"):
-
-        insights = []
-
-        # 1️⃣ Missing Values Check
-        missing = df.isnull().sum()
-        missing_cols = missing[missing > 0]
-
-        if len(missing_cols) > 0:
-            insights.append(
-                f"⚠️ Missing values found in: {list(missing_cols.index)}"
-            )
-        else:
-            insights.append("✅ No missing values detected")
-
-        # 2️⃣ Outlier Detection (IQR Method)
-        num_cols = df.select_dtypes(include=np.number).columns
-
-        for col in num_cols:
-
-            Q1 = df[col].quantile(0.25)
-            Q3 = df[col].quantile(0.75)
-            IQR = Q3 - Q1
-
-            lower = Q1 - 1.5 * IQR
-            upper = Q3 + 1.5 * IQR
-
-            outliers = df[(df[col] < lower) | (df[col] > upper)]
-
-            if len(outliers) > 0:
-                insights.append(
-                    f"📌 {len(outliers)} potential outliers detected in '{col}'"
+            st.header("📑 Export & Reports")
+            st.write("Generate professional deliverables for your client.")
+            
+            col_a, col_b = st.columns(2)
+            
+            with col_a:
+                st.subheader("📥 Cleaned Data")
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Download CSV",
+                    data=csv,
+                    file_name="prodata_cleaned_export.csv",
+                    mime="text/csv"
                 )
-
-        # 3️⃣ Trend Analysis
-        for col in num_cols:
-
-            if df[col].nunique() > 5:
-
-                trend = df[col].corr(pd.Series(range(len(df))))
-
-                if trend > 0.5:
-                    insights.append(f"📈 '{col}' shows strong upward trend")
-
-                elif trend < -0.5:
-                    insights.append(f"📉 '{col}' shows strong downward trend")
-
-        # 4️⃣ Distribution Check
-        for col in num_cols:
-
-            skew = df[col].skew()
-
-            if skew > 1:
-                insights.append(f"➡️ '{col}' is highly right-skewed")
-
-            elif skew < -1:
-                insights.append(f"⬅️ '{col}' is highly left-skewed")
-
-        # 5️⃣ Basic Statistics Summary
-        stats = df[num_cols].describe()
-
-        st.markdown("### 📊 Statistical Summary")
-        st.dataframe(stats)
-
-        # ================= DISPLAY INSIGHTS =================
-
-        st.markdown("### 💡 Key Business Insights")
-
-        if len(insights) == 0:
-            st.success("No major issues detected. Dataset looks healthy.")
-
-        else:
-            for i, insight in enumerate(insights, 1):
-                st.write(f"{i}. {insight}")
-
-        # ================= RECOMMENDATIONS =================
-
-        st.markdown("### 🚀 Recommendations")
-
-        if len(missing_cols) > 0:
-            st.write("✔ Consider handling missing values (mean/median/imputation).")
-
-        if len(num_cols) > 0:
-            st.write("✔ Consider scaling numeric features for ML models.")
-
-        st.write("✔ Use detected trends for forecasting & planning.")
-        st.write("✔ Investigate outliers for business risks/opportunities.")
-        st.write("✔ Improve data quality for better decisions.")
-
-        st.success("Insight Generation Completed ✅")
-
-
-# ================= ADVANCED EDA =================
-
-elif menu == "📊 Advanced EDA":
-
-    if st.session_state.plan == "Basic":
-        st.error("🔒 Upgrade Required")
-        st.stop()
-
-    if st.session_state.data is None:
-        st.warning("Upload data first")
-        st.stop()
-
-    st.title("📊 Advanced Exploratory Data Analysis")
-
-    df = st.session_state.data
-
-    numeric_cols = df.select_dtypes(np.number).columns
-
-    # ---------- STATISTICAL SUMMARY ----------
-    st.subheader("📈 Statistical Summary")
-    st.dataframe(df.describe())
-
-    st.markdown("---")
-
-    # ---------- MISSING VALUES ----------
-    st.subheader("❓ Missing Values Analysis")
-
-    missing = df.isnull().sum()
-
-    st.dataframe(missing)
-
-    if missing.sum() > 0:
-
-        st.warning("Missing values detected")
-
-        fill_option = st.selectbox(
-            "Handle Missing Values",
-            ["Do Nothing", "Fill with Mean", "Fill with Median", "Fill with Mode", "Drop Rows"]
-        )
-
-        if st.button("Apply Missing Value Treatment"):
-
-            if fill_option == "Fill with Mean":
-                df.fillna(df.mean(numeric_only=True), inplace=True)
-
-            elif fill_option == "Fill with Median":
-                df.fillna(df.median(numeric_only=True), inplace=True)
-
-            elif fill_option == "Fill with Mode":
-                df.fillna(df.mode().iloc[0], inplace=True)
-
-            elif fill_option == "Drop Rows":
-                df.dropna(inplace=True)
-
-            st.session_state.data = df
-            st.success("Missing Values Handled ✔")
-
-    st.markdown("---")
-
-    # ---------- CORRELATION ----------
-    if len(numeric_cols) > 1:
-
-        st.subheader("🔗 Correlation Heatmap")
-
-        fig, ax = plt.subplots(figsize=(8, 5))
-
-        sns.heatmap(
-            df[numeric_cols].corr(),
-            annot=True,
-            cmap="coolwarm",
-            ax=ax
-        )
-
-        st.pyplot(fig)
-
-    st.markdown("---")
-
-    # ---------- OUTLIER DETECTION ----------
-    st.subheader("📦 Outlier Detection (Boxplot)")
-
-    if len(numeric_cols) == 0:
-        st.warning("No numeric columns found")
-        st.stop()
-
-    selected_col = st.selectbox(
-        "Select Column for Outlier Analysis",
-        numeric_cols
-    )
-
-    fig2, ax2 = plt.subplots()
-
-    sns.boxplot(x=df[selected_col], ax=ax2)
-
-    st.pyplot(fig2)
-
-    # ---------- OUTLIER HANDLING ----------
-    st.subheader("🛠 Handle Outliers (IQR Method)")
-
-    Q1 = df[selected_col].quantile(0.25)
-    Q3 = df[selected_col].quantile(0.75)
-    IQR = Q3 - Q1
-
-    lower = Q1 - 1.5 * IQR
-    upper = Q3 + 1.5 * IQR
-
-    st.info(f"Lower Bound: {lower:.2f} | Upper Bound: {upper:.2f}")
-
-    out_method = st.selectbox(
-        "Outlier Treatment Method",
-        ["Do Nothing", "Remove Outliers", "Cap Outliers"]
-    )
-
-    if st.button("Apply Outlier Treatment"):
-
-        if out_method == "Remove Outliers":
-
-            df = df[(df[selected_col] >= lower) & (df[selected_col] <= upper)]
-
-            st.session_state.data = df
-
-            st.success("Outliers Removed ✔")
-
-        elif out_method == "Cap Outliers":
-
-            df[selected_col] = np.where(
-                df[selected_col] < lower,
-                lower,
-                np.where(df[selected_col] > upper, upper, df[selected_col])
-            )
-
-            st.session_state.data = df
-
-            st.success("Outliers Capped ✔")
-
-
-
-# ================= FEATURE ENGINEERING =================
-
-elif menu == "⚙ Feature Engineering":
-
-    if st.session_state.plan == "Basic":
-        st.error("🔒 Upgrade Required")
-        st.stop()
-
-    st.title("⚙ Feature Engineering")
-
-    df = st.session_state.data
-
-    if df is None:
-        st.warning("Upload data first")
-        st.stop()
-
-    # ================= COLUMN TYPES =================
-
-    numeric_cols = [col for col in df.columns if df[col].dtype != "object"]
-    cat_cols = [col for col in df.columns if df[col].dtype == "object"]
-
-    st.subheader("📌 Column Types")
-
-    st.write("🔢 Numerical Columns:")
-    st.write(numeric_cols)
-
-    st.write("🔤 Categorical Columns:")
-    st.write(cat_cols)
-
-    st.markdown("---")
-
-    # ================= NUMERIC TRANSFORMATION =================
-
-    st.subheader("📐 Numeric Transformations")
-
-    num_col = st.selectbox("Select Numeric Column", numeric_cols)
-
-    option = st.radio(
-        "Transformation",
-        ["Square", "Log", "Normalize"]
-    )
-
-    if st.button("Apply Transformation"):
-
-        if option == "Square":
-            df[num_col + "_sq"] = df[num_col] ** 2
-
-        elif option == "Log":
-            df[num_col + "_log"] = np.log1p(df[num_col])
-
-        elif option == "Normalize":
-            df[num_col + "_norm"] = (
-                (df[num_col] - df[num_col].min()) /
-                (df[num_col].max() - df[num_col].min())
-            )
-
-        st.session_state.data = df
-
-        st.success("✅ Numeric Feature Created")
-
-    st.markdown("---")
-
-    # ================= ENCODING =================
-
-    st.subheader("🔁 Categorical Encoding")
-
-    enc_col = st.selectbox("Select Categorical Column", cat_cols)
-
-    encode_type = st.radio(
-        "Encoding Method",
-        ["Label Encoding", "One-Hot Encoding"]
-    )
-
-    st.warning("⚠️ Do NOT apply Label + One-Hot on the same column.")
-
-    if st.button("Apply Encoding"):
-
-        from sklearn.preprocessing import LabelEncoder
-
-        # ----- Label Encoding -----
-        if encode_type == "Label Encoding":
-
-            le = LabelEncoder()
-
-            df[enc_col + "_label"] = le.fit_transform(df[enc_col])
-
-            st.success("✅ Label Encoding Applied")
-
-        # ----- One Hot Encoding -----
-        elif encode_type == "One-Hot Encoding":
-
-            dummies = pd.get_dummies(df[enc_col], prefix=enc_col)
-
-            df = pd.concat([df, dummies], axis=1)
-
-            st.success("✅ One-Hot Encoding Applied")
-
-        st.session_state.data = df
-
-    st.markdown("---")
-
-    # ================= PREVIEW =================
-
-    st.subheader("📊 Updated Dataset Preview")
-
-    st.dataframe(df.head())
-
-
-
-# ================= KPI =================
-
-elif menu == "📌 Custom KPIs":
-
-    if st.session_state.plan == "Basic":
-        st.error("🔒 Upgrade Required")
-        st.stop()
-
-    st.title("📌 Custom KPIs")
-
-    df = st.session_state.data
-
-    num = df.select_dtypes(np.number).columns
-
-    col = st.selectbox("Metric", num)
-
-    kpi = st.selectbox(
-        "Type",
-        ["Average","Maximum","Minimum","Total"]
-    )
-
-    if st.button("Generate"):
-
-        if kpi=="Average":
-            val = df[col].mean()
-        elif kpi=="Maximum":
-            val = df[col].max()
-        elif kpi=="Minimum":
-            val = df[col].min()
-        elif kpi=="Total":
-            val = df[col].sum()
-
-        st.metric(kpi, f"{val:.2f}")
-
-
-# ================= EXPORT =================
-
-elif menu == "⬇ Export":
-
-    if st.session_state.plan == "Basic":
-        st.error("🔒 Upgrade Required")
-        st.stop()
-
-    st.title("⬇ Export")
-
-    df = st.session_state.data
-
-    st.download_button(
-        "Download CSV",
-        df.to_csv(index=False),
-        "data.csv",
-        "text/csv"
-    )
-
-
-# ================= ML =================
-
-elif menu == "🤖 ML Studio":
-
-    if st.session_state.plan != "Premium":
-        st.error("🔒 Premium Only")
-        st.stop()
-
-    st.title("🤖 ML Studio - AutoML Dashboard")
-
-    df = st.session_state.data
-
-    if df is None:
-        st.warning("Upload data first")
-        st.stop()
-
-    # ================= TARGET & FEATURES =================
-
-    st.subheader("📌 Select Target & Features")
-
-    target = st.selectbox("Select Target (Dependent Variable)", df.columns)
-
-    feature_cols = st.multiselect(
-        "Select Features (Independent Variables)",
-        df.select_dtypes(np.number).columns
-    )
-
-    test_size = st.slider(
-        "Test Size (%)",
-        10, 50, 20
-    ) / 100
-
-    st.markdown("---")
-
-    # ================= IMPORTS =================
-
-    from sklearn.linear_model import LinearRegression, LogisticRegression
-    from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-    from sklearn.ensemble import (
-        RandomForestClassifier,
-        RandomForestRegressor,
-        GradientBoostingClassifier,
-        GradientBoostingRegressor
-    )
-
-    from sklearn.metrics import (
-        accuracy_score,
-        mean_squared_error,
-        r2_score
-    )
-
-    # ================= PROBLEM TYPE =================
-
-    y = df[target]
-
-    is_classification = y.nunique() <= 10
-
-    st.info(
-        "Problem Type: " +
-        ("Classification" if is_classification else "Regression")
-    )
-
-    st.markdown("---")
-
-    # ================= TRAIN =================
-
-    if st.button("🚀 Run Model Comparison"):
-
-        # ---------------- Split ----------------
-
-        X = df[feature_cols]
-        y = df[target]
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y,
-            test_size=test_size,
-            random_state=42
-        )
-
-        # ---------------- Models ----------------
-
-        models = {}
-
-        if is_classification:
-
-            models = {
-                "Logistic Regression": LogisticRegression(max_iter=1000),
-                "Decision Tree": DecisionTreeClassifier(),
-                "Random Forest": RandomForestClassifier(),
-                "Gradient Boosting": GradientBoostingClassifier()
-            }
-
-        else:
-
-            models = {
-                "Linear Regression": LinearRegression(),
-                "Decision Tree": DecisionTreeRegressor(),
-                "Random Forest": RandomForestRegressor(),
-                "Gradient Boosting": GradientBoostingRegressor()
-            }
-
-        results = []
-
-        best_model = None
-        best_score = -999
-
-        # ---------------- Train Loop ----------------
-
-        for name, model in models.items():
-
-            model.fit(X_train, y_train)
-
-            y_pred = model.predict(X_test)
-
-            # -------- Classification --------
-            if is_classification:
-
-                score = accuracy_score(y_test, y_pred)
-
-                metric_name = "Accuracy"
-
-            # -------- Regression --------
-            else:
-
-                score = r2_score(y_test, y_pred)
-
-                metric_name = "R² Score"
-
-            results.append({
-                "Model": name,
-                metric_name: round(score, 4)
-            })
-
-            # -------- Best Model --------
-            if score > best_score:
-
-                best_score = score
-                best_model = model
-                best_name = name
-
-        # ================= RESULTS =================
-
-        st.success("✅ Model Comparison Completed")
-
-        st.subheader("📊 Model Performance Comparison")
-
-        result_df = pd.DataFrame(results)
-
-        st.dataframe(result_df)
-
-        st.markdown("---")
-
-        # ================= BEST MODEL =================
-
-        st.subheader("🏆 Best Model")
-
-        st.success(f"Best Model: **{best_name}**")
-
-        st.metric(metric_name, round(best_score, 4))
-
-        # ================= SAVE =================
-
-        joblib.dump(best_model, "best_model.pkl")
-
-        st.success("💾 Best Model Saved as best_model.pkl")
-
-
-
-# ================= REPORT =================
-
-elif menu == "📄 Reports":
-
-    if st.session_state.data is None:
-        st.stop()
-
-    st.title("📄 Reports")
-
-    df = st.session_state.data
-
-    summary = ai_summary(df)
-
-    if st.button("Generate PDF"):
-
-        pdf = generate_pdf(df, summary)
-
-        st.download_button(
-            "Download",
-            pdf,
-            "report.pdf",
-            "application/pdf"
-        )
-
-# ================= BUSINESS INTEL =================
-
-elif menu == "💼 Business Intel":
-
-    # -------- Premium Lock --------
-    if st.session_state.plan != "Premium":
-        st.error("🔒 Upgrade to Premium to access Business Intelligence")
-        st.stop()
-
-    if st.session_state.data is None:
-        st.warning("Upload data first")
-        st.stop()
-
-    st.title("💼 AI Business Intelligence")
-
-    df = st.session_state.data
-
-    st.subheader("📊 Smart Business Analysis")
-
-    num_cols = df.select_dtypes(np.number).columns
-
-    if len(num_cols) == 0:
-        st.warning("No numeric data found for analysis")
-        st.stop()
-
-    # ================= KPI ANALYSIS =================
-
-    st.markdown("### 📈 Key Performance Indicators")
-
-    for col in num_cols[:5]:
-
-        avg = df[col].mean()
-        mx = df[col].max()
-        mn = df[col].min()
-
-        st.metric(
-            label=col,
-            value=f"{avg:.2f}",
-            delta=f"Max: {mx:.2f} | Min: {mn:.2f}"
-        )
-
-    st.markdown("---")
-
-    # ================= RISK ANALYSIS =================
-
-    st.markdown("### ⚠️ Risk & Stability Analysis")
-
-    for col in num_cols:
-
-        std = df[col].std()
-
-        if std > df[col].mean() * 0.5:
-
-            st.warning(f"📌 High Risk: '{col}' has high volatility")
-
-        else:
-
-            st.success(f"✅ Stable: '{col}' is stable")
-
-    st.markdown("---")
-
-    # ================= TREND DETECTION =================
-
-    st.markdown("### 📉 Trend Detection")
-
-    for col in num_cols:
-
-        trend = df[col].corr(pd.Series(range(len(df))))
-
-        if trend > 0.4:
-
-            st.write(f"📈 {col} → Growing Trend")
-
-        elif trend < -0.4:
-
-            st.write(f"📉 {col} → Declining Trend")
-
-        else:
-
-            st.write(f"➡️ {col} → Stable Trend")
-
-    st.markdown("---")
-
-    # ================= AI RECOMMENDATIONS =================
-
-    st.markdown("### 🤖 AI Business Recommendations")
-
-    rec = []
-
-    if df.isnull().sum().sum() > 0:
-        rec.append("Improve data quality (missing values detected)")
-
-    if len(num_cols) > 3:
-        rec.append("Use dimensionality reduction for ML models")
-
-    rec.append("Focus on high-performing KPIs")
-    rec.append("Monitor risky variables monthly")
-    rec.append("Apply predictive modeling for forecasting")
-
-    for i, r in enumerate(rec, 1):
-        st.write(f"{i}. {r}")
-
-    st.success("✅ Business Intelligence Generated Successfully")
-
-
-# ================= UPGRADE =================
-
-elif menu == "💳 Upgrade":
-
-    st.title("💳 Upgrade Your Plan")
-
-    st.markdown("""
-### Unlock Advanced Features
-
-✔ Full Reports  
-✔ ML Models  
-✔ Business Insights  
-✔ Unlimited Upload  
-✔ Priority Support
-""")
-
-    st.info("💬 Pay on Fiverr → Get Password → Unlock Access")
-
-    st.markdown("👉 https://www.fiverr.com/varunwalekar04")
-
-    st.markdown("---")
-
-    st.subheader("🔓 Enter Access Password")
-
-    col1, col2, col3 = st.columns(3)
-
-    # -------- BASIC --------
-    with col1:
-        st.subheader("Basic")
-        st.write("Free")
-        st.write("✔ Limited Access")
-
-    # -------- STANDARD --------
-    with col2:
-
-        st.subheader("Standard")
-
-        pwd = st.text_input("Standard Password", type="password")
-
-        if st.button("Unlock Standard"):
-
-            if pwd == STANDARD_PASS:
-
-                st.session_state.plan = "Standard"
-                st.success("✅ Standard Activated")
-
-            else:
-                st.error("❌ Wrong Password")
-
-    # -------- PREMIUM --------
-    with col3:
-
-        st.subheader("Premium")
-
-        pwd2 = st.text_input("Premium Password", type="password")
-
-        if st.button("Unlock Premium"):
-
-            if pwd2 == PREMIUM_PASS:
-
-                st.session_state.plan = "Premium"
-                st.success("🚀 Premium Activated")
-
-            else:
-                st.error("❌ Wrong Password")
-
-
-# ================= ACCOUNT =================
-
-elif menu == "👤 Account":
-
-    st.title("👤 Account")
-
-    st.write(f"Plan: {st.session_state.plan}")
-
-    st.write("📧 yourname@gmail.com")
-    st.write("💼 Fiverr: fiverr.com/varunwalekar04")
-
-    msg = st.text_area("Message")
-
-    if st.button("Send"):
-        st.success("Message Sent ✔")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            
+            with col_b:
+                st.subheader("📄 PDF Audit Report")
+                if st.button("Generate PDF Report"):
+                    # Create PDF Object
+                    pdf = PDFReport()
+                    pdf.add_page()
+                    
+                    # 1. Summary
+                    pdf.chapter_title("1. Executive Summary")
+                    summary_text = (f"The dataset contains {df.shape[0]} rows and {df.shape[1]} columns. "
+                                    f"Data quality analysis detected {df.isna().sum().sum()} missing values initially. "
+                                    f"Optimization processes have standardized the structure.")
+                    pdf.chapter_body(summary_text)
+                    
+                    # 2. Insights
+                    pdf.chapter_title("2. Key Insights")
+                    num_cols = df.select_dtypes(include=np.number).columns
+                    if len(num_cols) > 0:
+                        insight_text = f"Top Numeric Variable: {num_cols[0]}\nAverage Value: {round(df[num_cols[0]].mean(), 2)}\nMax Value: {df[num_cols[0]].max()}"
+                        pdf.chapter_body(insight_text)
+                    
+                    # 3. AI Model
+                    pdf.chapter_title("3. AI Predictive Analysis")
+                    if st.session_state['model_score']:
+                        model_text = (f"Target Variable: {st.session_state.get('target_col', 'N/A')}\n"
+                                      f"Model Confidence Score: {st.session_state['model_score']}")
+                        pdf.chapter_body(model_text)
+                    else:
+                        pdf.chapter_body("No AI model was trained during this session.")
+                        
+                    # Output PDF
+                    pdf_output = pdf.output(dest='S').encode('latin-1')
+                    
+                    st.download_button(
+                        label="Download PDF Report",
+                        data=pdf_output,
+                        file_name="ProData_AI_Audit_Report.pdf",
+                        mime="application/pdf"
+                    )
+
+if __name__ == "__main__":
+    main()
