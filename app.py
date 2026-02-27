@@ -94,11 +94,28 @@ class EnterpriseReport(FPDF):
         except:
             self.body_text("[Image Error]")
 
+
 # --- HELPER FUNCTIONS ---
+
 def get_column_types(df):
     num_cols = df.select_dtypes(include=np.number).columns.tolist()
     cat_cols = df.select_dtypes(exclude=np.number).columns.tolist()
     return num_cols, cat_cols
+
+
+@st.cache_data
+def load_data(path):
+    try:
+        if path.endswith(".csv"):
+            return pd.read_csv(path)
+        elif path.endswith(".xlsx"):
+            return pd.read_excel(path)
+        else:
+            return pd.read_csv(path)
+    except Exception as e:
+        st.error(f"Error loading file: {e}")
+        return None
+
 
 # --- MAIN APP LOGIC ---
 def main():
@@ -136,30 +153,56 @@ def main():
         st.markdown("---")
         st.caption("v12.3 - Freelance Edition")
 
+   
     # --- LANDING PAGE ---
     if uploaded_file is None and st.session_state['df'] is None:
         st.title("👋 Welcome to ProData AI")
         st.markdown("""
         ### Your Virtual Data Scientist
         This tool automates the boring parts of data analysis so you can focus on insights.
-        
-        **Capabilities:**
-        - 🧹 **Auto-Clean:** Detects and fixes messy data instantly using robust statistics (IQR).
-        - 📈 **Smart Charts:** Interactive visualizations powered by Plotly.
-        - 🤖 **AutoML:** Trains Predictive Models automatically with full Explainable AI (XAI).
-        - 📄 **PDF Reports:** Generates professional audit reports for clients.
-        
-        *👈 Upload a file in the sidebar to begin, or try it with sample data!*
         """)
         
-        # Example Data Demo 
-        if st.button("🚀 Load Demo Data (Titanic)", type="primary"):
-            url = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
-            try:
-                st.session_state['df'] = pd.read_csv(url)
+        # Section 1: Capabilities
+        st.markdown("#### 🛠️ Capabilities")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("- **🧹 Auto-Clean:** Fixes messy data instantly using IQR stats.")
+            st.markdown("- **📈 Smart Charts:** Interactive visuals powered by Plotly.")
+        with c2:
+            st.markdown("- **🤖 AutoML:** Trains predictive models with Explainable AI.")
+            st.markdown("- **📄 PDF Reports:** Generates professional audits for clients.")
+
+        st.divider()
+
+        # Section 2: WHAT CLIENTS GET (The New Section)
+        st.markdown("### 🎯 What You Get")
+        col_a, col_b, col_c = st.columns(3)
+        
+        with col_a:
+            st.markdown("##### 📄 Board-Ready Reports")
+            st.caption("A professional PDF summary of every cleaning step, chart, and model finding to present to stakeholders.")
+            
+        with col_b:
+            st.markdown("##### 🧠 Strategic Drivers")
+            st.caption("Don't just get a prediction; learn exactly **which factors** (like price or age) are driving your business outcomes.")
+            
+        with col_c:
+            st.markdown("##### ✅ Validated Data")
+            st.caption("Peace of mind that your data is free of outliers and ready for high-stakes decision making.")
+
+        st.divider()
+        
+        st.markdown("👈 **Upload a file in the sidebar to begin, or try it with sample data!**")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🚢 Load Titanic (Predictive ML Demo)", use_container_width=True):
+                st.session_state['df'] = load_data("https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv")
                 st.rerun()
-            except:
-                st.error("Could not load demo data.")
+        with col2:
+            if st.button("📈 Load Retail Sales (Forecasting Demo)", use_container_width=True):
+                st.session_state['df'] = load_data("https://raw.githubusercontent.com/jbrownlee/Datasets/master/shampoo.csv")
+                st.rerun()
 
     # --- MAIN DASHBOARD ---
     else:
@@ -241,7 +284,7 @@ def main():
                         fig = px.bar(df, x=x_ax, y=y_ax, color=color, title=f"{y_ax} by {x_ax}")
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    if st.button("📸 Capture Chart for Report"):
+                    if st.button("📸 Add Chart to Client Report"):
                          plt.figure(figsize=(10,6))
                          if viz_type == "Scatter" and y_ax: sns.scatterplot(data=df, x=x_ax, y=y_ax, hue=color)
                          elif viz_type == "Histogram": sns.histplot(data=df, x=x_ax, hue=color)
