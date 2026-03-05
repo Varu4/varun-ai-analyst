@@ -10,4 +10,5 @@ openpyxl
 joblib
 prophet
 cmdstanpy
+kaleido
 
