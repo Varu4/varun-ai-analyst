@@ -13,6 +13,7 @@ import seaborn as sns
 import tempfile
 import os
 import plotly.io as pio
+from prophet import Prophet
 
 # Machine Learning & Stats
 from sklearn.model_selection import train_test_split
@@ -555,7 +556,7 @@ def main():
 
 
                 # --- 6. ENTERPRISE FORECASTING (PROPHET VERSION) ---
-                from prophet import Prophet
+
                 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
                 import numpy as np
 
@@ -901,4 +902,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
