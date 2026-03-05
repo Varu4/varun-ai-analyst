@@ -9,4 +9,5 @@ seaborn
 openpyxl
 joblib
 prophet
+cmdstanpy
 
