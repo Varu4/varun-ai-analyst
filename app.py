@@ -13,7 +13,6 @@ import seaborn as sns
 import tempfile
 import os
 import plotly.io as pio
-pio.kaleido.scope.default_format = "png"
 
 # Machine Learning & Stats
 from sklearn.model_selection import train_test_split
@@ -902,3 +901,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
