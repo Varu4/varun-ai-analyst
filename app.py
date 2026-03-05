@@ -13,6 +13,7 @@ import seaborn as sns
 import tempfile
 import os
 import plotly.io as pio
+pio.defaults.default_format = "png" 
 from prophet import Prophet
 
 # Machine Learning & Stats
@@ -902,5 +903,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
