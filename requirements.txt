@@ -8,4 +8,5 @@ matplotlib
 seaborn
 openpyxl
 joblib
+prophet
 
