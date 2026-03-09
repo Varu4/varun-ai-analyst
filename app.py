@@ -559,7 +559,6 @@ def main():
                 # --- 6. ENTERPRISE FORECASTING (PROPHET VERSION) ---
 
                 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error
-                import numpy as np
 
                 with tabs[5]:
                     st.subheader("📈 Enterprise Forecasting (AI-Powered)")
@@ -569,6 +568,12 @@ def main():
                         col for col in df.columns
                         if pd.api.types.is_datetime64_any_dtype(df[col])
                     ]
+
+                    # ✅ SAFETY CHECK 
+                    if len(date_candidates) == 0:
+                        st.warning("⚠ No datetime column detected. Please convert a column to datetime.")
+                        st.info("Tip: Use a column containing dates such as 'Date', 'OrderDate', or 'Timestamp'.")
+                        st.stop()
 
                     valid_numeric = [
                         col for col in num_cols
@@ -630,18 +635,24 @@ def main():
                             forecast = model.predict(future)
 
                             # --- Accuracy Evaluation ---
-                            forecast_test = forecast.iloc[split_idx:split_idx+len(test_df)]
+                            forecast_test = forecast[['ds','yhat']].merge(
+                                test_df[['ds','y']],
+                                on='ds',
+                                how='inner'
+                            )
 
-                            if not test_df.empty:
+                            if not forecast_test.empty:
+
                                 mape = mean_absolute_percentage_error(
-                                    test_df['y'],
+                                    forecast_test['y'],
                                     forecast_test['yhat']
                                 )
 
                                 rmse = np.sqrt(mean_squared_error(
-                                    test_df['y'],
+                                    forecast_test['y'],
                                     forecast_test['yhat']
                                 ))
+
                             else:
                                 mape = None
                                 rmse = None
@@ -689,6 +700,12 @@ def main():
 
                             st.plotly_chart(fig, use_container_width=True)
 
+                            fig.add_vline(
+                                x=train_df['ds'].iloc[-1],
+                                line_dash="dash",
+                                line_color="red"
+                            )
+
                             # --- Display Accuracy ---
                             st.subheader("📊 Forecast Accuracy")
 
@@ -703,7 +720,10 @@ def main():
                                 'val_col': val_col,
                                 'horizon': horizon,
                                 'mape': mape,
-                                'rmse': rmse
+                                'rmse': rmse,
+                                'last_date': prophet_df['ds'].iloc[-1],
+                                'latest_val': prophet_df['y'].iloc[-1],
+                                'forecast_end_val': forecast['yhat'].iloc[-1]
                             }
 
                             st.session_state['audit_log'].append(
@@ -903,6 +923,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
